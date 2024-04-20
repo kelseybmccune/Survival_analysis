@@ -19,4 +19,7 @@ head(simdata$data, 20)
 simdata <- sim.survdata(N=1000, T=100, type="tvbeta", num.data.frames = 1)
 head(simdata$betas, 10) # matrix
 
-# includes simulation of random effects?
+# includes simulation of random effects? No
+
+library(simsurv)
+
