@@ -1,6 +1,7 @@
 
 library(tidyverse)
 library(lme4)
+library(rptR)
 
 
 rm(list=ls())
@@ -16,7 +17,8 @@ rm(list=ls())
 nSubjects = 20
 nTests = 8
 beta0 = log(2000)
-betweenSubjectSd = 2
+betweenSubjectSd = 0.02
+betweenSubjectVar = betweenSubjectSd^2
 
 # Generating random effects for each individual
 
@@ -53,8 +55,9 @@ data$obsResponse = rpois(n = nrow(data), lambda=data$lambda)
 
 fittedModel = glmer(obsResponse ~ 1 + (1|subject), family=poisson, data=data)
 
-summary(fittedModel)
+sumFittedModel = summary(fittedModel)
 
+fittedModel@theta
 
 # Let's look at the model-estimated intercept which we want to be close to the
 # beta0 value we chose
@@ -68,6 +71,12 @@ fittedModel@beta
 betweenSubjectSd
 fittedModel@theta
 
+# Checking repeatability
+
+residVar = log(1/exp(beta0)+1)
+
+rptTruth = betweenSubjectVar / (betweenSubjectVar + residVar)
+rptTruth
 
 
 ###############################################################################
