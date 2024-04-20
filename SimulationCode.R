@@ -2,10 +2,7 @@
 library(tidyverse)
 library(lme4)
 library(rptR)
-<<<<<<< HEAD
 
-=======
->>>>>>> 016083d49944ba77e99ef1fef2cc11accf4b3970
 
 rm(list=ls())
 
@@ -21,13 +18,12 @@ nSubjects = 20
 nTests = 8
 beta0 = log(2000)
 betweenSubjectSd = 0.02
-<<<<<<< HEAD
+
 betweenSubjectVar = betweenSubjectSd^2
-=======
+
 # would want to include range of values here, and some values from actual data when going to publication
 # range of values that are common from literature search
 
->>>>>>> 016083d49944ba77e99ef1fef2cc11accf4b3970
 
 # Generating random effects for each individual
 
