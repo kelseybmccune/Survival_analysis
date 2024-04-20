@@ -80,7 +80,6 @@ fittedModel@beta
 betweenSubjectSd
 fittedModel@theta
 
-<<<<<<< HEAD
 # Checking repeatability
 
 residVar = log(1/exp(beta0)+1)
@@ -88,11 +87,9 @@ residVar = log(1/exp(beta0)+1)
 rptTruth = betweenSubjectVar / (betweenSubjectVar + residVar)
 rptTruth
 
-=======
 rpt = rpt(obsResponse ~ 1 + (1|subject), grname = "subject", data = data, datatype = "Poisson",
           nboot = 100, npermut = 50)
 summary(rpt) #R = 0.48
->>>>>>> 016083d49944ba77e99ef1fef2cc11accf4b3970
 
 ###############################################################################
 #Looping the code to do lots of simulations and make sure that the model
