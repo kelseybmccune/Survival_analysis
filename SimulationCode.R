@@ -406,4 +406,107 @@ sum(simResults > modChisq)/length(simResults)
 
 
 
+################### GRACKLE SOCIAL NETWORK CODE HELP ######################
+# I am trying to create randomized networks by permuting the IDs of individuals in the edge list. 
+# Then from each iteration I need to get the social network metrics, strength and degree, for each individual and save it to a dataframe for output.
+# So there will be one dataframe for strength and one for degree with ncols = 10,000 (number of permutations), and nrow = number of unique grackles
+# I got most of the for loop to work to permute the IDs and do the data manipulation to get the half-weight index (hwi)
+# What I can't figure out is how to merge/combine the output dataframe (strength.perm for the strength metric) for each iteration.
 
+
+obs.hwi = read.csv("hwiValues.csv")
+el = obs.hwi[,c(2,4,8)] # only want ID1, ID2 and hwi
+library(igraph)
+library(sna)
+el = graph_from_data_frame(el, directed = F)
+mat = as_adjacency_matrix(el, attr = "hwi", names = T)
+el = as.matrix(mat) #symmetrical matrix
+obs.strength = data.frame("ID" = names(rowSums(el)),
+                          "obs.strength" = rowSums(el)) # strength values for each individual from actual data
+
+
+#randomly permute the nonFocalBirdID (ID.2)
+
+#degree.perm = matrix(NA, nrow=10000, ncol=1:length(ids))
+
+strength.perm = obs.strength
+for(i in 1:3){
+  perm = els.nb
+  perm$new.id2 = NA
+  perm$new.id2 = sample(perm$ID.2, nrow(perm), replace=F) # permuted edgelist, includes UBs and UNKs
+  
+  # Now go through exact same process as with original data to calculate half-weight index  
+  
+  # count number of times each focal bird is seen individually (y)
+  tmp2 = perm[,c(2,4)] #ID.1, Site
+  colnames(tmp2)[1] = "ID"
+  tmp3 = perm[,c(4,6)] #Site, new.id2
+  colnames(tmp3)[2] = "ID"
+  y = rbind(tmp2, tmp3)
+  y$count = 1
+  y = aggregate(count ~ ID + Site, data = y, FUN = "sum") 
+  colnames(y)[3] = "y"
+  
+  #Now reduce to birds with at least 2 focal follows 
+  perm = perm[which(perm$ID.1 == "Adobo" | perm$ID.1 == "Burrito" | perm$ID.1 == "Chilaquile" | 
+                      perm$ID.1 == "Chalupa" | perm$ID.1 == "Diablo" | perm$ID.1 == "Fideo" | 
+                      perm$ID.1 == "Taco" | perm$ID.1 == "Taquito" |  perm$ID.1 == "Yuca" | 
+                      perm$ID.1 == "Tembleque" | perm$ID.1 == "Polvorones" | perm$ID.1 == "Camote" | 
+                      perm$ID.1 == "Dulce de Leche" | perm$ID.1 == "Zapote Negro" | perm$ID.1 == "Cuervo" | 
+                      perm$ID.1 == "Xunub" | perm$ID.1 == "Galandra" | perm$ID.1 == "Kel" | 
+                      perm$ID.1 == "Kau" | perm$ID.1 == "Cutuy" | perm$ID.1 == "Tzanatl Preciosa" | 
+                      perm$ID.1 == "Pina"),]
+  
+  # And exclude unbanded birds
+  # perm <- perm[!perm$new.id2=="NA" & !perm$new.id2=="unbanded adult female" & 
+  #                     !perm$new.id2=="unbanded adult male" & !perm$new.id2=="unbanded juvenile" & 
+  #                     !perm$new.id2=="unbanded juvenile female" & !perm$new.id2=="unbanded juvenile male" &
+  #                     !perm$new.id2=="unbanded unknown female" & !perm$new.id2=="unbanded unknown male"  & 
+  #                     !perm$new.id2=="unknown adult female" & !perm$new.id2=="unknown adult male" & 
+  #                     !perm$new.id2=="unknown banded female" & !perm$new.id2=="unknown female" & 
+  #                     !perm$new.id2=="unknown grackle"  & !perm$new.id2=="unknown individual" & 
+  #                     !perm$new.id2=="unknown juvenile" & !perm$new.id2=="unknown juvenile female"  & 
+  #                     !perm$new.id2=="unknown juvenile male" & !perm$new.id2=="unknown male" & 
+  #                     !perm$new.id2=="unknown unbanded male",] 
+  
+  
+  #Create an edgelist, symmetrize the associations so all are in the same order and repeat pairs can be identified
+  perm$ID.1 = as.character(perm$ID.1)
+  perm$new.id2 = as.character(perm$new.id2)
+  for (j in 1:nrow(perm)) {
+    el.perm = perm[j, c("ID.1", "new.id2")]
+    el.perm = el.perm[,sort.list(el.perm)] #produces warning messages, but works
+    perm[j, "ID.1"] = el.perm[,1]
+    perm[j, "new.id2"] = el.perm[,2]
+  }
+  #For the half-weight index, calculate the number of times two birds are seen together (x)
+  perm$count = 1
+  x = aggregate(count ~ ID.1 + new.id2 + Site, data = perm, FUN = "sum")
+  colnames(x)[4]="x"
+  
+  colnames(y)[1] = "ID.1" 
+  hwi.perm = merge(x,y, by = c("ID.1","Site"))
+  hwi.perm$Y.1 = hwi.perm$y - hwi.perm$x #the number of times bird 1 was seen without bird 2
+  hwi.perm = hwi.perm[,-5]
+  colnames(y)[1] = "new.id2"
+  hwi.perm = merge(hwi.perm,y, by = c("new.id2","Site"))
+  hwi.perm$Y.2 = hwi.perm$y - hwi.perm$x #the number of times bird 2 was seen without bird 1
+  hwi.perm = hwi.perm[,-6]
+  #data frame ready for half-weight index equation
+  ### Half-weight index is used to weight the edges in the network for the calculation of the social network metric "strength". The equation is:
+  hwi.perm$hwi = hwi.perm$x/(0.5*(hwi.perm$Y.1 + hwi.perm$Y.2)+hwi.perm$x)
+  
+  ### Strength
+  el = hwi.perm[,c(1,3,7)] # only want ID1, ID2 and hwi
+  el = graph_from_data_frame(el, directed = F)
+  mat = as_adjacency_matrix(el, attr = "hwi", names = T)
+  el = as.matrix(mat) #symmetrical matrix
+  tmp = data.frame(rowSums(el)) #strength
+  tmp2 = data.frame("ID" = names(tmp),
+                    i=tmp)
+  strength.perm = merge(strength.perm,tmp2, by = "ID", all = T) #### CANNOT FIGURE OUT THIS LINE #####
+  #merge(strength.perm,tmp2[,2], by = 'ID', all = T)
+  #cbind(strength.perm, tmp[match(rownames(strength.perm), rownames(tmp))])
+  #
+  #tmp2[,2]
+}
