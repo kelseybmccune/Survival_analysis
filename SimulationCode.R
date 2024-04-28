@@ -423,7 +423,7 @@ mat = as_adjacency_matrix(el, attr = "hwi", names = T)
 el = as.matrix(mat) #symmetrical matrix
 obs.strength = data.frame("ID" = names(rowSums(el)),
                           "obs.strength" = rowSums(el)) # strength values for each individual from actual data
-
+els.nb = read.csv("origEdgeList.csv")
 
 #randomly permute the nonFocalBirdID (ID.2)
 
