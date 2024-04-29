@@ -428,7 +428,6 @@ els.nb = read.csv("origEdgeList.csv")
 
 #randomly permute the nonFocalBirdID (ID.2)
 
-#degree.perm = matrix(NA, nrow=10000, ncol=1:length(ids))
 
 
 
