@@ -418,6 +418,7 @@ obs.hwi = read.csv("hwiValues.csv")
 el = obs.hwi[,c(2,4,8)] # only want ID1, ID2 and hwi
 library(igraph)
 library(sna)
+library(tidyverse)
 el = graph_from_data_frame(el, directed = F)
 mat = as_adjacency_matrix(el, attr = "hwi", names = T)
 el = as.matrix(mat) #symmetrical matrix
@@ -428,6 +429,276 @@ els.nb = read.csv("origEdgeList.csv")
 #randomly permute the nonFocalBirdID (ID.2)
 
 #degree.perm = matrix(NA, nrow=10000, ncol=1:length(ids))
+
+
+
+perm = els.nb
+perm$new.id2 = NA
+
+#Subsetting to sites
+caPerm = perm %>% 
+  filter(Site=='CA')
+azPerm = perm %>% 
+  filter(Site=='AZ')
+
+# Creating a list of possible combinations for CA
+tmp = unique(c(caPerm$ID.1, caPerm$ID.2))
+caCombos = expand.grid('ID.1' = tmp, 'ID.2' = tmp) %>% 
+  filter(ID.1 != ID.2)
+for(j in 1:nrow(caCombos)){
+  tmp = sort(as.vector(as.matrix(caCombos[j, c('ID.1', 'ID.2')])))
+  caCombos[j, 'ID.1'] = tmp[1]
+  caCombos[j, 'ID.2'] = tmp[2]
+}
+caCombos = unique(caCombos) %>% 
+  mutate('Site' = 'CA')
+
+
+# Creating a list of possible combinations for AZ
+tmp = unique(c(azPerm$ID.1, azPerm$ID.2))
+azCombos = expand.grid('ID.1' = tmp, 'ID.2' = tmp) %>% 
+  filter(ID.1 != ID.2)
+for(j in 1:nrow(azCombos)){
+  tmp = sort(as.vector(as.matrix(azCombos[j, c('ID.1', 'ID.2')])))
+  azCombos[j, 'ID.1'] = tmp[1]
+  azCombos[j, 'ID.2'] = tmp[2]
+}
+azCombos = unique(azCombos) %>% 
+  mutate('Site' = 'AZ')
+
+
+# Randomizing CA
+caPerm = caPerm %>% 
+  mutate(ID.2 = sample(ID.2, nrow(.), replace=F))
+
+
+# Randomizing AZ
+azPerm = azPerm %>% 
+  mutate(ID.2 = sample(ID.2, nrow(.), replace=F))
+
+# Total seen CA
+totSeenCa = data.frame('ID' = c(caPerm$ID.1, caPerm$ID.2)) %>% 
+  group_by(ID) %>% 
+  summarise(totSeen = n())
+
+# Total seen AZ
+totSeenAz = data.frame('ID' = c(azPerm$ID.1, azPerm$ID.2)) %>% 
+  group_by(ID) %>% 
+  summarise(totSeen = n())
+
+# Seen together CA
+for (j in 1:nrow(caPerm)) {
+  tmp = sort(as.vector(as.matrix(caPerm[j, c('ID.1', 'ID.2')])))
+  caPerm[j, 'ID.1'] = tmp[1]
+  caPerm[j, 'ID.2'] = tmp[2]
+}
+caTogether = caPerm %>% 
+  group_by(ID.1, ID.2) %>% 
+  summarise(seenTogether = n()) %>% 
+  filter(ID.1 != ID.2) %>% 
+  full_join(caCombos, by=c('ID.1', 'ID.2'))
+
+# Seen together AZ
+for (j in 1:nrow(azPerm)) {
+  tmp = sort(as.vector(as.matrix(azPerm[j, c('ID.1', 'ID.2')])))
+  azPerm[j, 'ID.1'] = tmp[1]
+  azPerm[j, 'ID.2'] = tmp[2]
+}
+azTogether = azPerm %>% 
+  group_by(ID.1, ID.2) %>% 
+  summarise(seenTogether = n()) %>% 
+  filter(ID.1 != ID.2) %>% 
+  full_join(azCombos, by=c('ID.1', 'ID.2'))
+
+
+# THIS IS WHERE I STOPPED - FOR SOME REASON CA COMPLETE AND AZ COMPLETE
+# HAVE 1 MORE ROW THAN AZ TOGETHER AND CA TOGETHER.
+
+caComplete = totSeenCa %>% 
+  set_names(c('ID.1', 'totSeen1')) %>% 
+  full_join(caTogether, by='ID.1')
+
+azComplete = totSeenAz %>% 
+  set_names(c('ID.1', 'totSeen1')) %>% 
+  full_join(azTogether, by='ID.1')
+
+
+# 
+# test = totCombosCa %>%
+#   full_join(caTogether, by=c('ID.1', 'ID.2'))
+# 
+# 
+# 
+# 
+# 
+# perm$count = 1
+# seenTogether = aggregate(count ~ ID.1 + new.id2 + Site, data = perm, FUN = "sum")
+# colnames(seenTogether)[4]="seenTogether"
+# seenTogether = seenTogether %>%
+#   filter(ID.1 != new.id2)
+# 
+# 
+# #Merge this back in with all possible combinations of birds that could be seen together
+# seenTogether$inST = 1
+# totCombos$inTC = 1
+# 
+# 
+# test = merge(totCombos, seenTogether, by=c('ID.1', 'new.id2', 'Site'), all=T)
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# perm$new.id2 = sample(perm$ID.2, nrow(perm), replace=F) # permuted edgelist, includes UBs and UNKs
+# 
+# 
+# #THERE IS STILL A PROBLEM HERE WHERE AN INDIVIDUAL CAN BE MATCHED UP WITH ITSELF
+# 
+# # Now go through exact same process as with original data to calculate half-weight index
+# 
+# # count number of times each focal bird is seen individually (y)
+# id1 = perm[,c(3,5)] #ID.1, Site
+# colnames(id1)[1] = "ID"
+# id2 = perm[,c(4,5)] #Site, new.id2
+# colnames(id2)[1] = "ID"
+# totSeen = rbind(id1, id2)
+# totSeen$count = 1
+# totSeen = aggregate(count ~ ID + Site, data = totSeen, FUN = "sum")
+# colnames(totSeen)[3] = "totSeen"
+# 
+# # #Creating a list of all possible combinations that could be seen together in CA
+# tmpCa = totSeen %>% filter(Site == 'CA')
+# caCombos = expand.grid('ID.1' = tmpCa$ID, 'new.id2' = tmpCa$ID) %>%
+#   filter(ID.1 != new.id2)
+# for(j in 1:nrow(caCombos)){
+#   tmp = sort(as.vector(as.matrix(caCombos[j, c('ID.1', 'new.id2')])))
+#   caCombos[j, 'ID.1'] = tmp[1]
+#   caCombos[j, 'new.id2'] = tmp[2]
+# }
+# caCombos = unique(caCombos) %>%
+#   mutate('Site' = 'CA')
+# 
+# # #Creating a list of all possible combinations that could be seen together in AZ
+# tmpAz = totSeen %>% filter(Site == 'AZ')
+# azCombos = expand.grid('ID.1' = tmpAz$ID, 'new.id2' = tmpAz$ID) %>%
+#   filter(ID.1 != new.id2)
+# for(j in 1:nrow(azCombos)){
+#   tmp = sort(as.vector(as.matrix(azCombos[j, c('ID.1', 'new.id2')])))
+#   azCombos[j, 'ID.1'] = tmp[1]
+#   azCombos[j, 'new.id2'] = tmp[2]
+# }
+# azCombos = unique(azCombos) %>%
+#   mutate('Site' = 'AZ')
+# 
+# totCombos = rbind(caCombos, azCombos)
+# 
+# rm(caCombos, azCombos, tmpAz, tmpCa)
+# 
+# 
+# 
+# #Now reduce to birds with at least 2 focal follows
+# # perm = perm[which(perm$ID.1 == "Adobo" | perm$ID.1 == "Burrito" | perm$ID.1 == "Chilaquile" |
+# #                     perm$ID.1 == "Chalupa" | perm$ID.1 == "Diablo" | perm$ID.1 == "Fideo" |
+# #                     perm$ID.1 == "Taco" | perm$ID.1 == "Taquito" |  perm$ID.1 == "Yuca" |
+# #                     perm$ID.1 == "Tembleque" | perm$ID.1 == "Polvorones" | perm$ID.1 == "Camote" |
+# #                     perm$ID.1 == "Dulce de Leche" | perm$ID.1 == "Zapote Negro" | perm$ID.1 == "Cuervo" |
+# #                     perm$ID.1 == "Xunub" | perm$ID.1 == "Galandra" | perm$ID.1 == "Kel" |
+# #                     perm$ID.1 == "Kau" | perm$ID.1 == "Cutuy" | perm$ID.1 == "Tzanatl Preciosa" |
+# #                     perm$ID.1 == "Pina"),]
+# 
+# # And exclude unbanded birds
+# # perm <- perm[!perm$new.id2=="NA" & !perm$new.id2=="unbanded adult female" &
+# #                     !perm$new.id2=="unbanded adult male" & !perm$new.id2=="unbanded juvenile" &
+# #                     !perm$new.id2=="unbanded juvenile female" & !perm$new.id2=="unbanded juvenile male" &
+# #                     !perm$new.id2=="unbanded unknown female" & !perm$new.id2=="unbanded unknown male"  &
+# #                     !perm$new.id2=="unknown adult female" & !perm$new.id2=="unknown adult male" &
+# #                     !perm$new.id2=="unknown banded female" & !perm$new.id2=="unknown female" &
+# #                     !perm$new.id2=="unknown grackle"  & !perm$new.id2=="unknown individual" &
+# #                     !perm$new.id2=="unknown juvenile" & !perm$new.id2=="unknown juvenile female"  &
+# #                     !perm$new.id2=="unknown juvenile male" & !perm$new.id2=="unknown male" &
+# #                     !perm$new.id2=="unknown unbanded male",]
+# 
+# 
+# #Create an edgelist, symmetrize the associations so all are in the same order and repeat pairs can be identified
+# # perm$ID.1 = as.character(perm$ID.1)
+# # perm$new.id2 = as.character(perm$new.id2)
+# 
+# 
+# # I edited this, and now feel good about it
+# for (j in 1:nrow(perm)) {
+#   tmp = sort(as.vector(as.matrix(perm[j, c('ID.1', 'new.id2')])))
+#   perm[j, 'ID.1'] = tmp[1]
+#   perm[j, 'new.id2'] = tmp[2]
+# }
+# 
+# 
+# 
+# #For the half-weight index, calculate the number of times two birds are seen together (x)
+# perm$count = 1
+# seenTogether = aggregate(count ~ ID.1 + new.id2 + Site, data = perm, FUN = "sum")
+# colnames(seenTogether)[4]="seenTogether"
+# seenTogether = seenTogether %>%
+#   filter(ID.1 != new.id2)
+# 
+# 
+# #Merge this back in with all possible combinations of birds that could be seen together
+# seenTogether$inST = 1
+# totCombos$inTC = 1
+# 
+# 
+# test = merge(totCombos, seenTogether, by=c('ID.1', 'new.id2', 'Site'), all=T)
+# 
+# 
+# seenTogether$seenTogether = ifelse(is.na(seenTogether$seenTogether), 0, seenTogether$seenTogether)
+# 
+# 
+# colnames(totSeen)[1] = "ID.1"
+# colnames(totSeen)[3] = 'totSeen1'
+# 
+# hwi.perm = merge(seenTogether,totSeen, by = 'ID.1', all=T)
+# 
+# 
+# hwi.perm$saw1not2 = hwi.perm$totSeen1 - hwi.perm$seenTogether
+# hwi.perm = hwi.perm[,-5]
+# 
+# 
+# colnames(totSeen)[1] = "new.id2"
+# colnames(totSeen)[3] = 'totSeen2'
+# hwi.perm = merge(hwi.perm, totSeen, by=c('new.id2', 'Site'), all=T)
+# 
+# hwi.perm = merge(hwi.perm,y, by = c("new.id2","Site"))
+# hwi.perm$Y.2 = hwi.perm$y - hwi.perm$x #the number of times bird 2 was seen without bird 1
+# hwi.perm = hwi.perm[,-6]
+# #data frame ready for half-weight index equation
+# ### Half-weight index is used to weight the edges in the network for the calculation of the social network metric "strength". The equation is:
+# hwi.perm$hwi = hwi.perm$x/(0.5*(hwi.perm$Y.1 + hwi.perm$Y.2)+hwi.perm$x)
+# 
+# ### Strength
+# el = hwi.perm[,c(1,3,7)] # only want ID1, ID2 and hwi
+# el = graph_from_data_frame(el, directed = F)
+# mat = as_adjacency_matrix(el, attr = "hwi", names = T)
+# el = as.matrix(mat) #symmetrical matrix
+# tmp = data.frame(rowSums(el)) #strength
+# tmp$ID = row.names(tmp)
+# 
+# 
+# strength.perm = merge(strength.perm,tmp2, by = "ID", all = T) #### CANNOT FIGURE OUT THIS LINE #####
+# #merge(strength.perm,tmp2[,2], by = 'ID', all = T)
+# #cbind(strength.perm, tmp[match(rownames(strength.perm), rownames(tmp))])
+# #
+# #tmp2[,2]
+# 
+# 
+# 
+# 
+# 
+# 
+
+
 
 strength.perm = obs.strength
 for(i in 1:3){
